@@ -14,6 +14,9 @@
 - **Spring Boot**
 - **Springdoc OpenAPI**
 - **ngrok**
+- **Kotlin**
+
+P.S. Ради интереса попробовал написать еще на Kotlin, раньше его не трогал.
 
 ---
 

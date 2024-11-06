@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: BotApiKotlin
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui
+
+logging:
+  level:
+    root: INFO
+    org.springframework: WARN
+    com.project.botapi: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+bot:
+  token: ${BOT_TOKEN}
+  confirm_code: ${CONFIRM_CODE}
+  v_api: ${V_API}
+  url_api: ${URL_API}

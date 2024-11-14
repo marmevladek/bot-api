@@ -10,10 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -22,42 +19,67 @@ import java.util.Map;
 public class BotApiController {
 
     private static final Logger logger = LoggerFactory.getLogger(BotApiController.class);
+    private static final int MAX_RETRY_ATTEMPTS = 3;
 
     @Value("${bot.confirm_code}")
     private String botConfirmCode;
 
-    private final BotApiService botApiService;
 
+    private final BotApiService botApiService;
 
     public BotApiController(BotApiService botApiService) {
         this.botApiService = botApiService;
     }
 
-    @Operation(summary = "Подтвеждение адреса сервера/Цитирование текста сообщения")
+
+    @Operation(summary = "Подтверждение адреса сервера/Цитирование текста сообщения")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Адрес сервера подтвержден/Текст сообщения успешно процитировано", content = @Content),
+            @ApiResponse(responseCode = "200", description = "Адрес сервера подтвержден/Текст сообщения успешно процитирован", content = @Content),
             @ApiResponse(responseCode = "400", description = "Некорректный тип события", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Ошибка сервера", content = @Content)
+            @ApiResponse(responseCode = "500", description = "Ошибка сервера", content = @Content),
+            @ApiResponse(responseCode = "429", description = "Слишком много запросов", content = @Content)
     })
     @PostMapping("/webhook")
-    public ResponseEntity<String> getMessage(@RequestBody Map<String, Object> body) {
-        String type = (String) body.get("type");
-        if (type == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Отсутствует \"type\"");
+    public ResponseEntity<String> getMessage(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = "X-Retry-Counter", required = false, defaultValue = "0") int retryCounter) {
         try {
-            if ("confirmation".equals(type)) {
-                return new ResponseEntity<>(botConfirmCode, HttpStatus.OK);
-            } else if ("message_new".equals(type)) {
-                botApiService.sendMessage(body);
-                return new ResponseEntity<>("ok", HttpStatus.OK);
-            } else if ("message_reply".equals(type)) {
-                return new ResponseEntity<>("ok", HttpStatus.OK);
+            if (retryCounter >= MAX_RETRY_ATTEMPTS) {
+                logger.warn("Превышено максимальное количество попыток: {}. Запрос отклонен.", retryCounter);
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .header("Retry-After", "600")
+                        .body("Слишком много запросов");
             }
 
-        } catch (Exception e) {
-            logger.error(e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка обработки сообщения сервером");
-        }
+            String type = (String) body.get("type");
+            if (type == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Тип события не указан");
+            }
 
-        return null;
+            return switch (type) {
+                case "confirmation" -> ResponseEntity.ok(botConfirmCode);
+                case "message_new" -> handleMessageNew(body);
+                case "message_reply", "message_allow" -> ResponseEntity.ok("ok");
+                default -> ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Некорректный тип события");
+            };
+        } catch (Exception e) {
+            logger.error("Ошибка при обработке запроса: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Ошибка сервера");
+        }
+    }
+
+    private ResponseEntity<String> handleMessageNew(Map<String, Object> body) {
+        try {
+            String response = botApiService.sendMessage(body);
+            logger.info("Сообщение успешно отправлено: {}", response);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Ошибка при обработке нового сообщения", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Ошибка сервера при обработке сообщения");
+        }
     }
 }

@@ -123,7 +123,7 @@ public class BotApiServiceImpl implements BotApiService {
                 .queryParam("user_id", userId)
                 .queryParam("message", messageText)
                 .queryParam("random_id", randomId)
-                .queryParam("access_token", botToken)
+                .queryParam("access_token", "botToken")
                 .queryParam("v", botVApi)
                 .build()
                 .toUri();

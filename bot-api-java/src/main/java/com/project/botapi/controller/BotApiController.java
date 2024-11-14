@@ -34,10 +34,24 @@ public class BotApiController {
 
     @Operation(summary = "Подтверждение адреса сервера/Цитирование текста сообщения")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Адрес сервера подтвержден/Текст сообщения успешно процитирован", content = @Content),
-            @ApiResponse(responseCode = "400", description = "Некорректный тип события", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Ошибка сервера", content = @Content),
-            @ApiResponse(responseCode = "429", description = "Слишком много запросов", content = @Content)
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Адрес сервера подтвержден/Текст сообщения успешно процитирован",
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Некорректный тип события",
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Ошибка сервера",
+                    content = @Content),
+            @ApiResponse(
+                    responseCode = "429",
+                    description = "Слишком много запросов",
+                    content = @Content)
     })
     @PostMapping("/webhook")
     public ResponseEntity<String> getMessage(
@@ -73,9 +87,7 @@ public class BotApiController {
 
     private ResponseEntity<String> handleMessageNew(Map<String, Object> body) {
         try {
-            String response = botApiService.sendMessage(body);
-            logger.info("Сообщение успешно отправлено: {}", response);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(botApiService.sendMessage(body));
         } catch (Exception e) {
             logger.error("Ошибка при обработке нового сообщения", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
